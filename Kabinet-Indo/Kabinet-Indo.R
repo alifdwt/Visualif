@@ -1,0 +1,101 @@
+library(tidyverse)
+library(ggbump)
+library(ggimage)
+library(sysfonts)
+library(htmltools)
+library(ggtext)
+library(rsvg)
+library(glue)
+library(showtext)
+library(ggtext)
+
+sysfonts::font_add('fb', 'C:/Users/aputr/AppData/Local/Microsoft/Windows/Fonts/Font Awesome 6 Brands-Regular-400.otf')
+showtext::showtext_auto()
+showtext::showtext_opts(dpi=300)
+
+dpr0 <- read.csv("Kabinet-Indo/datasets/DPR-RI.csv")
+
+# Menggabungkan data untuk mendapatkan tahun_awal
+df_merged <- dpr0 %>%
+  group_by(partai) %>%
+  summarize(tahun_awal = min(tahun)) %>%
+  right_join(dpr0, by = "partai")
+
+# Menggabungkan data untuk mendapatkan tahun_akhir
+dpr <- df_merged %>%
+  group_by(partai) %>%
+  summarize(tahun_akhir = max(tahun)) %>%
+  right_join(df_merged, by = "partai")
+
+dpr_detail <- read.csv("Kabinet-Indo/datasets/DPR-RI_detail.csv")
+dpr_detail <- unique(merge(dpr%>%select(partai, tahun_awal, tahun_akhir), dpr_detail, by = "partai", all.x = FALSE))
+df_dpr <- merge(dpr, dpr_detail, by = "partai", all.x = TRUE)
+
+dpr_detail <- dpr_detail %>%
+  tidyr::gather(key = "awal_atau_akhir", value = "tahun", tahun_awal:tahun_akhir)
+
+dpr_detail <- merge(dpr%>%select(partai, tahun, urutan), dpr_detail, by = c("partai", "tahun"))
+dpr <- unique(merge(dpr, dpr_detail%>%select(partai, partai_lengkap, warna), by = "partai", all.x = TRUE))
+
+
+
+
+label_padding = .7
+font_size = '14px'
+font_rank_size = '16px'
+
+plot_v1 <- ggplot() +
+  ggbump::geom_bump(data = dpr, linewidth = 1.5,
+                    mapping = aes(x=tahun, y=urutan, group=partai, color=I(warna))) +
+  ggimage::geom_image(data = dpr_detail, mapping = aes(x=tahun, y=urutan, image=image_url), size=0.028, asp=12/7.5) +
+  ggtext::geom_richtext(data = dpr%>%filter(tahun==1999),
+                        hjust=1,
+                        mapping = aes(y=urutan, x=tahun-label_padding,
+                                      label.size=NA, family="sans",
+                                      label=glue("<span style='font-size:{font_size};'>{partai_lengkap}<span style='color:white;'>..</span><span style='font-size:{font_rank_size};'>**{urutan}**</span></span>"))) +
+  ggtext::geom_richtext(data = dpr%>%filter(tahun==2019),
+                        hjust=0, family="sans",
+                        mapping = aes(y=urutan, x=tahun+label_padding,
+                                      label.size=NA,
+                                      label=glue("<span style='font-size:{font_size};'><span style='font-size:{font_rank_size};'>**{urutan}**</span><span style='color:white;'>..</span>{partai_lengkap}</span>"))) +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  guides(color = FALSE) +
+  scale_x_continuous(limits = c(1992.5,2026.5), breaks = c(1999, 2004, 2009, 2014, 2019)) +
+  scale_y_reverse()
+
+title<-"<span>**KURSI DPR PASCA REFORMASI**</span>"
+subtitle<-"<span>Perubahan besar terjadi pada dinamika perpolitikan Indonesia setelah Reformasi 1998. Grafik di bawah merepresentasikan posisi **partai politik** berdasarkan jumlah **kursinya** diurutkan dari yang terbanyak sampai tersedikit. <span style='color:#d61922;background:red;'>**PDI Perjuangan**</span>, yang selama era orde baru menjadi partai oposisi, masih bersaing dengan <span style='color:#ffff00;background:black;'>**Golongan Karya**</span> walau kini telah menjadi koalisi.</span>"
+caption <- paste0("<span>Source: **Wikipedia**</span><br>",
+       "<span style='font-family:fb;'>&#xf099;</span>",
+       "<span style='color:white;'>.</span>",
+       "<span>@alifdwt</span>",
+       "<span style='color:white;'>..</span>",
+       "<span style='font-family:fb;'>&#xf09b;</span>",
+       "<span style='color:white;'>.</span>",
+       "<span>alifdwt</span>",
+       "<span style='color:white;'>..</span>",
+       "<span style='font-family:fb;'>&#xf09b;</span>",
+       "<span style='color:white;'>.</span>",
+       "<span>tashapiro</span>"
+)
+
+
+plot_v1+
+  labs(title=title, subtitle=subtitle, caption=caption)+
+  theme_minimal()+
+  theme(text=element_text(family="sans"), 
+        plot.title = element_textbox_simple(halign=0.5, margin=margin(b=10,t=15), size=22),
+        plot.subtitle = element_textbox_simple(halign=0, hjust=0.5, margin=margin(b=10), 
+                                               width=grid::unit(7.25, "in"), 
+                                               size=11, color="#424242"),
+        plot.background = element_rect(fill = "white", color = "white"),
+        plot.caption = ggtext::element_textbox_simple(color="#434343"),
+        axis.text.x=element_text(size=10, vjust=5),
+        axis.ticks=element_blank(),
+        axis.text.y=element_blank(),
+        panel.background = element_blank(),
+        panel.grid = element_blank(),
+        axis.title = element_blank())
+
+ggsave("Kabinet-Indo/Kabinet-Indo.png", units="in", width=16, height=10)
