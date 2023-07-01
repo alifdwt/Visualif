@@ -1,3 +1,5 @@
+# SOURCE: https://github.com/tashapiro/tanya-data-viz/blob/main/spotify-artists/scripts/generate-image-labels.R
+
 library(tidyverse)
 library(geomtextpath)
 library(ggimage)
@@ -5,7 +7,7 @@ library(cropcircles)
 library(magick)
 library(glue)
 
-top_artists_indo <- read_csv("posts/Spotify-Total/helper/datasets/top_artists_indo.csv")
+top_artists_indo <- read_csv("Spotify-Top-Artis-Indo/datasets/top_artists_indo.csv")
 
 df_sub <- top_artists_indo %>%
   arrange(desc(popularity)) %>%
@@ -63,12 +65,6 @@ plot_image_label<-function(image,
     theme_void()
 }
 
-# test function
-#plot_image_label(image = df_sub$circle[1],
-#                 label = df_sub$artist[1],
-#                 font_color = "#fada4b",
-#                 top_bottom = "bottom",
-#                 hjust = 0.1)
 
 #craete new file path for images
 df_sub = df_sub%>% mutate(new_image_path = paste0(tolower(str_replace_all(artist," ","_")),".png"))
@@ -86,5 +82,12 @@ for(i in 1:nrow(df_sub)){
                           font_color="#fada4b",
                           top_bottom = pos, 
                           hjust=0.2)
-  ggsave(filename=glue("posts/Spotify-Total/helper/images/circle-labels/{path}"), plot=plot, height=6, width=6)
+  ggsave(filename=glue("Spotify-Top-Artis-Indo/images/circle-labels/{path}"), plot=plot, height=6, width=6)
+}
+
+#create loop to save all image files without the text
+for(i in 1:nrow(df_sub)){
+  img = border(image_read(df_sub$circle[i]))
+  path = df_sub$new_image_path[i]
+  image_write(img, path = glue("Spotify-Top-Artis-Indo/images/circles/{path}"), format = "png")
 }
